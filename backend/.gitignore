@@ -1,0 +1,17 @@
+# Python関連
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+
+# 環境変数
+.env
+
+# IDE関連
+.vscode/
+.idea/
+
+# ログファイル
+*.log
