@@ -51,9 +51,32 @@ const InputPage = () => {
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     //ここでid生成
+    const generateUUID = () => {
+      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+        /[xy]/g,
+        function (character) {
+          const randomValue = (Math.random() * 16) | 0;
 
+          let generatedCharacter;
+          if (character === "x") {
+            generatedCharacter = randomValue;
+          } else {
+            generatedCharacter = (randomValue & 0x3) | 0x8;
+          }
+
+          return generatedCharacter.toString(16);
+        }
+      );
+    };
+    const id = generateUUID();
     //ログで出力
-    console.log(data);
+    console.log(id, "クライアント側で生成したuuid,string型");
+    console.log(data, "サーバーサイド側に送るオブジェクト");
+    console.log(data.description, "求人の説明");
+    console.log(data.salary_max, "最高年収");
+    console.log(data.salary_min, "最低年収");
+    console.log(data.holidays, "年間休日数");
+    console.log(isValid, "バリデーションのisValid");
   };
 
   return (
