@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 const formSchema = z.object({
   salary_min: z.coerce
@@ -35,6 +36,8 @@ const formSchema = z.object({
 });
 
 const InputPage = () => {
+  const router = useRouter();
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     mode: "onChange", // リアルタイムでバリデーションを実行できるようにする
@@ -77,6 +80,14 @@ const InputPage = () => {
     console.log(data.salary_min, "最低年収");
     console.log(data.holidays, "年間休日数");
     console.log(isValid, "バリデーションのisValid");
+
+    router.push(
+      `/analyze/analyzing?id=${id}&salary_min=${data.salary_min}&salary_max=${
+        data.salary_max
+      }&holiday=${data.holidays}&description=${encodeURIComponent(
+        data.description
+      )}`
+    );
   };
 
   return (
