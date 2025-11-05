@@ -22,7 +22,7 @@ export default function Home() {
           <Card className="mb-12">
             <CardHeader>
               <CardTitle>
-                <Link href="/input">
+                <Link href="/analyze">
                   <h2>自分で入力項目して診断してみる</h2>
                 </Link>
               </CardTitle>
@@ -37,7 +37,7 @@ export default function Home() {
             </CardContent>
             <CardFooter className="flex justify-center">
               <nav>
-                <Link href="/input" className="text-xl text-blue-500">
+                <Link href="/analyze" className="text-xl text-blue-500">
                   Start!
                 </Link>
               </nav>
