@@ -70,7 +70,7 @@ async def analyze(user_input: UserInputData):
     import json
     try:
         result_json = json.loads(result_text)
-        print(result_json "成功")
+        print(result_json, "成功")
     except:
         result_json = {"score": 3, "reason": result_text[:200]}  # fallback
 
