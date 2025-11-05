@@ -4,6 +4,7 @@ from openai import OpenAI
 import os
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional
 
 
 
@@ -27,9 +28,10 @@ def root():
 
 #ユーザーの入力データ(仮)
 class UserInputData(BaseModel):
+    id: Optional[str] = None
     salary_min: int
     salary_max: int
-    holidays: int
+    holiday: int
     description: str
 
 #AI分析
@@ -44,11 +46,13 @@ async def analyze(user_input: UserInputData):
     1がブラック企業の可能性が低く、5がブラック企業の可能性が高い。
 
     【給与範囲】{user_input.salary_min}〜{user_input.salary_max}万円
-    【年間休日】{user_input.holidays}日
+    【年間休日】{user_input.holiday}日
     【求人文】{user_input.description}
 
     出力形式（必ずこのJSON形式で出力してください）:
+    {user_input.id}が空の場合は"id": null String型で
     {{
+        "id": "{user_input.id}" String型,
         "score": 数値 (1〜5) Number型,
         "reason": "理由を100文字以内で説明" String型
     }}
