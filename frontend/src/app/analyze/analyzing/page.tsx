@@ -24,14 +24,18 @@ const AnalyzingPage = () => {
         router.push("/analyze/result");
       } catch (error) {
         console.error("エラーが発生しました", error);
-        router.push("/");
+        // router.push("/");
         // router.push("/analyze/error");
       }
     };
     fetchAnalysis();
   }, []);
 
-  return <div>AnalyzingPage Now Loading...</div>;
+  return (
+    <div className="flex flex-col items-center justify-center h-screen">
+      <div className="animate-pulse text-lg">AIが求人を分析中です…🤖💭</div>
+    </div>
+  );
 };
 
 export default AnalyzingPage;
