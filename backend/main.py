@@ -1,11 +1,12 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Request
+from pydantic import BaseModel, Field, validator
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
-
+from pydantic import ValidationError
+from fastapi.responses import JSONResponse
 
 
 load_dotenv()
@@ -24,21 +25,36 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    return {"message": "Hello World"}
+    return {"message": "エンドポイント'/'は正常動作しています"}
+
 
 #ユーザーの入力データ(仮)
 class UserInputData(BaseModel):
     id: Optional[str] = None
-    salary_min: int
-    salary_max: int
-    holiday: int
-    description: str
+    salary_min: int = Field(..., ge=100, le=3000, description="最低年収を入力してください")
+    salary_max: int = Field(..., ge=200, le=9999, description="最高年収を入力してください")
+    holiday: int = Field(..., ge=1, le=365, description="年間休日数を入力してください")
+    description: str = Field(..., min_length=1, max_length=9999, description="求人の説明を入力してください")
+    @validator('salary_max')
+    def salary_max_must_be_greater_than_min(cls, v, values):
+        if 'salary_min' in values and v <= values['salary_min']:
+            raise ValueError('最高年収は最低年収より大きい必要があります')
+        return v
+    @validator('description')
+    def description_not_empty(cls, v):
+        if not v.strip():
+            raise ValueError('説明は空文字列にできません')
+        return v.strip()
 
+#バリデーションエラーのハンドリング
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request: Request, exc: ValidationError):
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
 #AI分析
 @app.post("/analyze")
 async def analyze(user_input: UserInputData):
     if not user_input:
-        return {"error": "入力が空です。"}
+        raise HTTPException(status_code=400, detail="入力が空です。")
 
     ###promptは要修正
     prompt = f"""
@@ -71,7 +87,19 @@ async def analyze(user_input: UserInputData):
     try:
         result_json = json.loads(result_text)
         print(result_json, "成功")
-    except:
-        result_json = {"score": 3, "reason": result_text[:200]}  # fallback
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="JSON形式の解析に失敗しました")
+        return {
+            "id": user_input.id,
+                "score": 3,
+                "reason": "分析結果の処理中にエラーが発生しました"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "id": user_input.id,
+                "score": 3,
+                "reason": "分析結果の処理中にサーバーエラーが発生しました"
+        }
 
     return result_json
