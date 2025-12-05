@@ -15,6 +15,9 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { generateUUID } from "@/utlis/generateUUID";
+import { useSetAtom } from "jotai";
+import { inputInfoAtom } from "@/stores/inputInfoAtom";
 
 const formSchema = z.object({
   salary_min: z.coerce
@@ -38,6 +41,8 @@ const formSchema = z.object({
 const InputPage = () => {
   const router = useRouter();
 
+  const setInputInfo = useSetAtom(inputInfoAtom);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     mode: "onChange", // リアルタイムでバリデーションを実行できるようにする
@@ -54,23 +59,6 @@ const InputPage = () => {
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     //ここでid生成
-    const generateUUID = () => {
-      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-        /[xy]/g,
-        function (character) {
-          const randomValue = (Math.random() * 16) | 0;
-
-          let generatedCharacter;
-          if (character === "x") {
-            generatedCharacter = randomValue;
-          } else {
-            generatedCharacter = (randomValue & 0x3) | 0x8;
-          }
-
-          return generatedCharacter.toString(16);
-        }
-      );
-    };
     const id = generateUUID();
     //ログで出力
     console.log(id, "クライアント側で生成したuuid,string型");
@@ -81,12 +69,16 @@ const InputPage = () => {
     console.log(data.holidays, "年間休日数");
     console.log(isValid, "バリデーションのisValid");
 
+    setInputInfo({
+      id: id,
+      salary_min: data.salary_min,
+      salary_max: data.salary_max,
+      holiday: data.holidays,
+      description: data.description,
+    });
+
     router.push(
-      `/analyze/analyzing?id=${id}&salary_min=${data.salary_min}&salary_max=${
-        data.salary_max
-      }&holiday=${data.holidays}&description=${encodeURIComponent(
-        data.description
-      )}`
+      `/analyze/analyzing?id=${id}&salary_min=${data.salary_min}&salary_max=${data.salary_max}&holiday=${data.holidays}`
     );
   };
 

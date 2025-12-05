@@ -1,6 +1,6 @@
 "use client";
 import { useAtomValue } from "jotai";
-import { analysisResultAtom } from "@/lib/atom";
+import { analysisResultAtom } from "@/stores/analysisResultAtom";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
