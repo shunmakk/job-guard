@@ -6,7 +6,11 @@ from sqlalchemy import pool
 from alembic import context
 
 from app.db import Base
+from dotenv import load_dotenv
 
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 # this is the Alembic Config object, which provides
