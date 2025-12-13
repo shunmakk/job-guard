@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { generateUUID } from "@/utlis/generateUUID";
 import { useSetAtom } from "jotai";
 import { inputInfoAtom } from "@/stores/inputInfoAtom";
+import { currentCount } from "@/utlis/currentCount";
 
 const formSchema = z.object({
   salary_min: z.coerce
@@ -56,8 +57,10 @@ const InputPage = () => {
 
   // フォームのバリデーション状態を取得
   const { isValid, errors } = form.formState;
-
   const onSubmit = (data: z.infer<typeof formSchema>) => {
+    if (!currentCount()) {
+      return;
+    }
     //ここでid生成
     const id = generateUUID();
     //ログで出力
