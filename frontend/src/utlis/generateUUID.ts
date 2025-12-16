@@ -1,4 +1,4 @@
-export const generateUUID = () => {
+export const generateUUID = (): string => {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
     /[xy]/g,
     function (character) {
