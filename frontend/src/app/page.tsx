@@ -1,7 +1,62 @@
-import Image from "next/image";
+"use client";
 import MainCard from "@/components/basic/Card";
+import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { useRef, useEffect } from "react";
+import { registerUser } from "./actions/registerUser";
+import { useAtom } from "jotai";
+import { userDataAtom, isRegisteringAtom } from "@/stores/userAtom";
 
 export default function Home() {
+  //このページはLPとして使いたい、今後別のページを作成する
+  const { user, isLoaded } = useUser();
+  const router = useRouter();
+  const calledRef = useRef(false);
+  const [userData, setUserData] = useAtom(userDataAtom);
+  const [isRegistering, setIsRegistering] = useAtom(isRegisteringAtom);
+
+  useEffect(() => {
+    if (userData) {
+      console.log("すでにUserDataが存在しています");
+      return;
+    }
+
+    // userDataがnullの場合のみAPI呼び出し
+    const fetchUserData = async () => {
+      if (!isLoaded || !user) {
+        return;
+      }
+      if (calledRef.current || isRegistering) {
+        return;
+      }
+
+      console.log("API呼び出しを開始します");
+      calledRef.current = true;
+      setIsRegistering(true);
+
+      try {
+        const data = await registerUser();
+        setUserData({
+          email: data.email,
+          provider: data.provider,
+          has_completed_preferences: data.has_completed_preferences,
+          isLoaded: true,
+        });
+        if (!data.has_completed_preferences) {
+          router.push("/preferences");
+        } else {
+          router.push("/analyze");
+        }
+      } catch (error) {
+        console.error("ユーザー登録エラー:", error);
+      } finally {
+        setIsRegistering(false);
+      }
+    };
+
+    fetchUserData();
+  }, [isLoaded]);
+
   return (
     <>
       <main className="flex flex-col gap-[32px] row-start-2 items-center w-3/4 md:w-1/2">
