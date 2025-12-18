@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime
 from app.db import Base
 from datetime import datetime
+from sqlalchemy import Boolean
 
 class User(Base):
     __tablename__ = "users"
@@ -11,3 +12,4 @@ class User(Base):
     provider = Column(String, index=True)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now)
+    has_completed_preferences = Column(Boolean, default=False)
