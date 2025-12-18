@@ -16,5 +16,5 @@ __pycache__/
 # ログファイル
 *.log
 
-.venv/
+.venv
 alembic.ini
