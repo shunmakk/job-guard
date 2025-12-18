@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request,Depends
 from pydantic import BaseModel, Field, validator
 from openai import OpenAI
 import os
@@ -7,11 +7,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 from pydantic import ValidationError
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBearer
+from auth.clerk_auth import get_current_user
+from model.user import User
+from sqlalchemy.orm import Session
+from app.db import get_db
+
+
 
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 app = FastAPI()
+security = HTTPBearer()
+
 
 # CORSを設定
 app.add_middleware(
@@ -26,6 +35,38 @@ app.add_middleware(
 @app.get("/")
 def root():
     return {"message": "エンドポイント'/'は正常動作しています"}
+
+#ユーザー登録
+class UserRegister(BaseModel):
+    email: str
+    provider: str
+
+@app.post("/users/register")
+async def register_user(
+    data:UserRegister,
+    payload = Depends(get_current_user),
+    db: Session = Depends(get_db),):
+    clerk_id = payload["sub"]
+
+    #既存のUserテーブルにユーザーが存在するか確認
+    user = db.query(User).filter(User.clerk_id == clerk_id).first()
+    if user:
+        raise HTTPException(status_code=400, detail="既にユーザーが存在します")
+
+    #新規ユーザーを作成
+    new_user = User(
+    id=clerk_id,
+    clerk_id=clerk_id,
+    email=data.email,
+    provider=data.provider,
+    has_completed_preferences=False
+)
+    db.add(new_user)
+    db.commit()
+    return {
+    "user_id": new_user.id,
+    "has_completed_preferences": False
+}
 
 
 #ユーザーの入力データ(仮)
