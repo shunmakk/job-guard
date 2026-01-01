@@ -19,7 +19,7 @@ export async function registerUser() {
     clerkUser.emailAddresses.find(
       (e) => e.id === clerkUser.primaryEmailAddressId
     )?.emailAddress ?? "";
-  const provider = clerkUser.externalAccounts?.[0]?.provider ?? "google";
+  const provider = clerkUser.externalAccounts?.[0]?.provider ?? "oauth_google";
 
   const res = await fetch("http://127.0.0.1:8000/users/register", {
     method: "POST",
