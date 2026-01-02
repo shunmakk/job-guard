@@ -64,7 +64,8 @@ async def register_user(
     db.add(new_user)
     db.commit()
     return {
-    "user_id": new_user.id,
+    "email": new_user.email,
+    "provider": new_user.provider,
     "has_completed_preferences": False
 }
 
@@ -130,17 +131,17 @@ async def analyze(user_input: UserInputData):
         print(result_json, "成功")
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="JSON形式の解析に失敗しました")
-        return {
-            "id": user_input.id,
-                "score": 3,
-                "reason": "分析結果の処理中にエラーが発生しました"
-        }
+        # return {
+        #     "id": user_input.id,
+        #         "score": 3,
+        #         "reason": "分析結果の処理中にエラーが発生しました"
+        # }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-        return {
-            "id": user_input.id,
-                "score": 3,
-                "reason": "分析結果の処理中にサーバーエラーが発生しました"
-        }
+        # return {
+        #     "id": user_input.id,
+        #         "score": 3,
+        #         "reason": "分析結果の処理中にサーバーエラーが発生しました"
+        # }
 
     return result_json
