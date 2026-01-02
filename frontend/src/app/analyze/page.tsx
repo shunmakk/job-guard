@@ -15,10 +15,10 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { generateUUID } from "@/utlis/generateUUID";
+import { generateUUID } from "@/utils/generateUUID";
 import { useSetAtom } from "jotai";
 import { inputInfoAtom } from "@/stores/inputInfoAtom";
-import { currentCount } from "@/utlis/currentCount";
+import { currentCount } from "@/utils/currentCount";
 
 const formSchema = z.object({
   salary_min: z.coerce
