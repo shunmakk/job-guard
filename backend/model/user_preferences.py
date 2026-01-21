@@ -12,5 +12,6 @@ class UserPreferences(Base):
     desired_holiday = Column(Integer, index=True)
     max_overtime_hours = Column(Integer, index=True)
     remote_preference = Column(String, nullable=False,index=True)
+    work_style = Column(String, nullable=False,index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
