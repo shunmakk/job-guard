@@ -169,7 +169,7 @@ async def save_preferences(
     user = db.query(User).filter(User.clerk_id == clerk_id).first()
 
     #データベースを更新、なければ作成(（user_id = PKなので1件だけ)
-    pref = db.query(UserPreferences).filter(UserPreferences.user.id == user.id).first()
+    pref = db.query(UserPreferences).filter(UserPreferences.user_id == user.id).first()
 
     if pref:
         #更新
