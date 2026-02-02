@@ -8,6 +8,8 @@ from alembic import context
 from app.db import Base
 from dotenv import load_dotenv
 from model.user import User
+from model.user_preferences import UserPreferences
+
 
 import os
 load_dotenv()

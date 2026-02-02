@@ -15,6 +15,7 @@ import { Slider } from "@/components/ui/slider";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { savePreferences } from "../actions/savePreferences";
 
 
 const formSchema = z.object({
@@ -88,10 +89,18 @@ export default function Preferences() {
     try {
       console.log(data);
       form.reset(data, { keepValues: true });
-      if (userData) {
-        // has_completed_preferencesを更新する処理と、フォームの情報を保存する処理をここに追加
-        router.push("/");
+      //フォームの情報を保存
+      const result = await savePreferences(data)
+
+      if(userData){
+        setUserData({
+          ...userData,
+          has_completed_preferences: true,
+        });
+        console.log("希望条件設定完了:", userData);
       }
+      //リダイレクト
+      router.replace("/")
     } catch (error) {
       console.error("設定完了エラーが発生しました:", error);
     }
