@@ -1,38 +1,49 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import axios from "axios";
 import { useSetAtom } from "jotai";
-import { analysisResultAtom } from "@/lib/atom";
+import { analysisResultAtom } from "@/stores/analysisResultAtom";
+import { analyzeCompany } from "@/api/fetchAnalysis";
+import { inputInfoAtom } from "@/stores/inputInfoAtom";
+import { useAtomValue } from "jotai";
 
 const AnalyzingPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const setResult = useSetAtom(analysisResultAtom);
   const hasRequest = useRef(false);
+  const inputInfo = useAtomValue(inputInfoAtom);
 
   useEffect(() => {
     if (hasRequest.current) return;
-    const fetchAnalysis = async () => {
+
+    const performAnalysis = async () => {
       try {
         hasRequest.current = true;
-        const response = await axios.post("http://127.0.0.1:8000/analyze", {
-          id: searchParams.get("id") as string,
-          salary_min: Number(searchParams.get("salary_min")),
-          salary_max: Number(searchParams.get("salary_max")),
-          holiday: Number(searchParams.get("holiday")),
-          description: searchParams.get("description") as string,
+
+        const result = await analyzeCompany({
+          id: inputInfo.id,
+          salary_min: inputInfo.salary_min,
+          salary_max: inputInfo.salary_max,
+          holiday: inputInfo.holiday,
+          description: inputInfo.description,
         });
-        setResult(response.data);
-        router.push("/analyze/result");
+
+        if (result.success) {
+          setResult(result.data);
+          router.push("/analyze/result");
+        } else {
+          console.error("分析エラー:", result.error);
+          router.push("/analyze?error=analysis_failed");
+        }
       } catch (error) {
         console.error("エラーが発生しました", error);
         hasRequest.current = false;
-        // router.push("/");
-        // router.push("/analyze/error");
+        router.push("/analyze?error=unexpected_error");
       }
     };
-    fetchAnalysis();
+
+    performAnalysis();
   }, [searchParams, router, setResult]);
 
   return (
