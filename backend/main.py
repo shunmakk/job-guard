@@ -12,6 +12,7 @@ from auth.clerk_auth import get_current_user
 from model.user import User
 from sqlalchemy.orm import Session
 from app.db import get_db
+from model.user_preferences import UserPreferences
 
 
 
@@ -145,3 +146,59 @@ async def analyze(user_input: UserInputData):
         # }
 
     return result_json
+
+#ユーザーの希望条件を取得
+class UserPreferencesModel(BaseModel):
+        desired_salary: int = Field(..., ge=200, le=3000, description="希望年収を入力してください")
+        age: str
+        desired_holiday: int = Field(..., ge=110, le=150, description="希望休日を入力してください")
+        max_overtime_hours: int = Field(..., ge=0, le=80, description="許容残業時間を入力してください")
+        remote_preference: str = Field(..., description="在宅可否を入力してください")
+        work_style: str = Field(..., description="働き方を入力してください")
+
+@app.post("/users/preferences")
+async def save_preferences(
+    data: UserPreferencesModel,
+    payload = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # jwtからclerk_idを取得します
+    clerk_id = payload["sub"]
+
+    # userが存在するか
+    user = db.query(User).filter(User.clerk_id == clerk_id).first()
+
+    #データベースを更新、なければ作成(（user_id = PKなので1件だけ)
+    pref = db.query(UserPreferences).filter(UserPreferences.user.id == user.id).first()
+
+    if pref:
+        #更新
+        pref.desired_salary = data.desired_holiday
+        pref.age = data.age
+        pref.desired_holiday = data.desired_holiday
+        pref.max_overtime_hours = data.max_overtime_hours
+        pref.remote_preference = data.remote_preference
+        pref.work_style = data.work_style
+
+    else:
+        #作成
+        new_pref = UserPreferences(
+            user_id=user.id,
+            desired_salary=data.desired_salary,
+            age=data.age,
+            desired_holiday=data.desired_holiday,
+            max_overtime_hours=data.max_overtime_hours,
+            remote_preference=data.remote_preference,
+            work_style=data.work_style
+        )
+        db.add(new_pref)
+
+        if user.has_completed_preferences is False:
+         user.has_completed_preferences = True
+        db.commit()
+
+    return {
+        "success": True,
+        "has_completed_preferences": user.has_completed_preferences
+    }
+
