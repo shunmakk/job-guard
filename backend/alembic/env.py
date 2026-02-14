@@ -9,6 +9,8 @@ from app.db import Base
 from dotenv import load_dotenv
 from model.user import User
 from model.user_preferences import UserPreferences
+from model.job_posts import JobPosts
+from model.job_analysis_ai import JobAnalysisAI
 
 
 import os
