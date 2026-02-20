@@ -1,16 +1,12 @@
 "use client";
 import { atom } from "jotai";
 
-export const inputInfoAtom = atom<{
-  id: string;
-  salary_min: number;
-  salary_max: number;
-  holiday: number;
-  description: string;
-}>({
-  id: "",
-  salary_min: 0,
-  salary_max: 0,
-  holiday: 0,
-  description: "",
+export interface InputInfo {
+  industry: string;
+  job_text: string;
+}
+
+export const inputInfoAtom = atom<InputInfo>({
+  industry: "",
+  job_text: "",
 });
