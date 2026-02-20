@@ -9,34 +9,41 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { generateUUID } from "@/utils/generateUUID";
 import { useSetAtom } from "jotai";
 import { inputInfoAtom } from "@/stores/inputInfoAtom";
-import { currentCount } from "@/utils/currentCount";
+
+// 業界リスト
+const INDUSTRIES = [
+  "IT・通信",
+  "金融・保険",
+  "メーカー・製造",
+  "商社",
+  "小売・流通",
+  "サービス・外食",
+  "マスコミ・広告",
+  "コンサルティング",
+  "不動産・建設",
+  "医療・福祉",
+  "教育",
+  "官公庁・公社・団体",
+  "その他",
+] as const satisfies readonly string[];
 
 const formSchema = z.object({
-  salary_min: z.coerce
-    .number<number>()
-    .min(100, { message: "最低提示給料は100万以上" })
-    .max(3000, { message: "最低提示給料は3000万以下" }),
-  salary_max: z.coerce
-    .number<number>()
-    .min(200, { message: "最高提示給料は200万以上" })
-    .max(9999, { message: "最高提示給料は9999万以下" }),
-  holidays: z.coerce
-    .number<number>()
-    .min(1, { message: "休暇は1日以上" })
-    .max(365, { message: "休暇は365日以下" }),
-  description: z
+  industry: z.string().min(1, { message: "業界を選択してください" }),
+  job_text: z
     .string()
-    .min(1, { message: "説明は1文字以上" })
-    .max(9999, { message: "説明は9999文字以下" }),
+    .min(50, { message: "求人情報は50文字以上入力してください" })
+    .max(10000, { message: "求人情報は10000文字以下にしてください" }),
 });
 
 const InputPage = () => {
@@ -46,138 +53,83 @@ const InputPage = () => {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    mode: "onChange", // リアルタイムでバリデーションを実行できるようにする
+    mode: "onChange",
     defaultValues: {
-      salary_min: 100,
-      salary_max: 300,
-      holidays: 120,
-      description: "",
+      industry: "",
+      job_text: "",
     },
   });
 
-  // フォームのバリデーション状態を取得
   const { isValid, errors } = form.formState;
-  const onSubmit = (data: z.infer<typeof formSchema>) => {
-    if (!currentCount()) {
-      return;
-    }
-    //ここでid生成
-    const id = generateUUID();
-    //ログで出力
-    console.log(id, "クライアント側で生成したuuid,string型");
-    console.log(data, "サーバーサイド側に送るオブジェクト");
-    console.log(data.description, "求人の説明");
-    console.log(data.salary_max, "最高年収");
-    console.log(data.salary_min, "最低年収");
-    console.log(data.holidays, "年間休日数");
-    console.log(isValid, "バリデーションのisValid");
 
+  const onSubmit = (data: z.infer<typeof formSchema>) => {
     setInputInfo({
-      id: id,
-      salary_min: data.salary_min,
-      salary_max: data.salary_max,
-      holiday: data.holidays,
-      description: data.description,
+      industry: data.industry,
+      job_text: data.job_text,
     });
 
-    router.push(
-      `/analyze/analyzing?id=${id}&salary_min=${data.salary_min}&salary_max=${data.salary_max}&holiday=${data.holidays}`
-    );
+    router.push("/analyze/analyzing");
   };
 
   return (
     <div className="container mx-auto w-4/5 sm:w-1/2">
       <div className="my-12 flex flex-col items-center justify-center">
         <div className="space-y-2 mb-8">
-          <h1 className="text-center text-2xl font-bold">ブラック企業度診断</h1>
+          <h1 className="text-center text-2xl font-bold">求人分析</h1>
           <p className="text-center text-sm text-muted-foreground mt-5">
-            以下の4項目を入力してブラック企業度を診断してみよう！
+            業界と求人情報を入力して、マッチング度とブラック企業リスクを診断しよう！
           </p>
         </div>
-        <div>
+        <div className="w-full">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              <div className="w-full min-w-full">
-                <h3 className="text-lg font-bold mb-2">給与の幅</h3>
-                <div className="flex flex-row gap-4 items-start justify-center">
-                  <div className="w-1/2">
-                    <FormField
-                      control={form.control}
-                      name="salary_min"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>最低年収（万円）</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              placeholder="提示年収下限"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="w-1/2">
-                    <FormField
-                      control={form.control}
-                      name="salary_max"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>最高年収（万円）</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              placeholder="提示年収上限"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="w-full min-w-full">
-                <h3 className="text-lg font-bold mb-2">年間休日数</h3>
+              <div className="w-full">
+                <h3 className="text-lg font-bold mb-2">業界</h3>
                 <FormField
                   control={form.control}
-                  name="holidays"
+                  name="industry"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>年間休日数</FormLabel>
+                      <FormLabel>業界を選択してください</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="年間休日数"
-                          {...field}
-                        />
+                        <NativeSelect
+                          className="w-full"
+                          value={field.value}
+                          onChange={field.onChange}
+                        >
+                          <NativeSelectOption value="" disabled>
+                            業界を選択
+                          </NativeSelectOption>
+                          {INDUSTRIES.map((industry) => (
+                            <NativeSelectOption key={industry} value={industry}>
+                              {industry}
+                            </NativeSelectOption>
+                          ))}
+                        </NativeSelect>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-              <div className="w-full min-w-full">
-                <h3 className="text-lg font-bold mb-2">求人の説明</h3>
+              <div className="w-full">
+                <h3 className="text-lg font-bold mb-2">求人情報</h3>
                 <FormField
                   control={form.control}
-                  name="description"
+                  name="job_text"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>求人の説明をコピペしてきてください</FormLabel>
-                      <FormControl className="w-full min-w-full">
+                      <FormLabel>求人情報をコピペしてください</FormLabel>
+                      <FormControl>
                         <Textarea
-                          placeholder="求人情報"
+                          placeholder="求人情報（給与、休日、仕事内容など）を貼り付けてください"
                           {...field}
-                          className="resize-none h-60 w-full min-w-full"
+                          className="resize-none h-80 w-full"
                         />
                       </FormControl>
                       <FormMessage />
                       <p className="text-muted-foreground text-sm pl-3">
-                        Indeedやリクナビの本文を貼ってください
+                        Indeedやリクナビなどの求人本文をそのまま貼ってください（50文字以上）
                       </p>
                     </FormItem>
                   )}

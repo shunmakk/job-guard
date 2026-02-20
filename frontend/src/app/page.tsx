@@ -9,7 +9,7 @@ export default function Home() {
   const { user } = useUser();
   const [userData] = useAtom(userDataAtom);
 
-  // ログインしているけど設定未完了の場合の案内
+  // ログインしているけど設定未完了の場合の案内表示
   const showPreferencesMessage =
     user && userData && !userData.has_completed_preferences;
 

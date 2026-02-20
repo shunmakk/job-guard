@@ -1,15 +1,13 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useSetAtom } from "jotai";
+import { useRouter } from "next/navigation";
+import { useSetAtom, useAtomValue } from "jotai";
 import { analysisResultAtom } from "@/stores/analysisResultAtom";
-import { analyzeCompany } from "@/api/fetchAnalysis";
+import { analyzeCompany } from "@/app/actions/fetchAnalysis";
 import { inputInfoAtom } from "@/stores/inputInfoAtom";
-import { useAtomValue } from "jotai";
 
 const AnalyzingPage = () => {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const setResult = useSetAtom(analysisResultAtom);
   const hasRequest = useRef(false);
   const inputInfo = useAtomValue(inputInfoAtom);
@@ -17,16 +15,20 @@ const AnalyzingPage = () => {
   useEffect(() => {
     if (hasRequest.current) return;
 
+    // 入力情報がない場合はフォームページにリダイレクト
+    if (!inputInfo.industry || !inputInfo.job_text) {
+      router.push("/analyze");
+      window.alert('入力情報がないため、入力ページにリダイレクトしました')
+      return;
+    }
+
     const performAnalysis = async () => {
       try {
         hasRequest.current = true;
 
         const result = await analyzeCompany({
-          id: inputInfo.id,
-          salary_min: inputInfo.salary_min,
-          salary_max: inputInfo.salary_max,
-          holiday: inputInfo.holiday,
-          description: inputInfo.description,
+          industry: inputInfo.industry,
+          job_text: inputInfo.job_text,
         });
 
         if (result.success) {
@@ -34,7 +36,7 @@ const AnalyzingPage = () => {
           router.push("/analyze/result");
         } else {
           console.error("分析エラー:", result.error);
-          router.push("/analyze?error=analysis_failed");
+          router.push(`/analyze?error=${encodeURIComponent(result.error)}`);
         }
       } catch (error) {
         console.error("エラーが発生しました", error);
@@ -44,11 +46,14 @@ const AnalyzingPage = () => {
     };
 
     performAnalysis();
-  }, [searchParams, router, setResult]);
+  }, [inputInfo, router, setResult]);
 
   return (
     <div className="flex flex-col items-center justify-center h-screen">
-      <div className="animate-pulse text-lg">AIが求人を分析中です…🤖💭</div>
+      <div className="animate-pulse text-lg">AIが求人を分析中です…</div>
+      <p className="text-sm text-muted-foreground mt-4">
+        マッチング度とブラック企業リスクを判定中
+      </p>
     </div>
   );
 };

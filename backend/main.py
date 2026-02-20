@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request,Depends
+from fastapi import FastAPI, HTTPException, Request, Depends
 from pydantic import BaseModel, Field, validator
 from openai import OpenAI
 import os
@@ -10,11 +10,15 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 from auth.clerk_auth import get_current_user
 from model.user import User
+from model.job_posts import JobPosts
+from model.job_analysis_ai import JobAnalysisAI
 from sqlalchemy.orm import Session
 from app.db import get_db
 from model.user_preferences import UserPreferences
-
-
+import json
+import uuid
+from datetime import datetime
+from version import PROMPT_VERSION
 
 
 load_dotenv()
@@ -37,7 +41,9 @@ app.add_middleware(
 def root():
     return {"message": "エンドポイント'/'は正常動作しています"}
 
-#ユーザー登録
+########################################################
+###ユーザー登録
+########################################################
 class UserRegister(BaseModel):
     email: str
     provider: str
@@ -70,84 +76,186 @@ async def register_user(
     "has_completed_preferences": False
 }
 
+########################################################
+###求人を元に価値観、希望条件との適合度とブラック企業リスクを評価
+########################################################
+#業界一覧
+VALID_INDUSTRIES = [
+    "IT・通信",
+    "金融・保険",
+    "メーカー・製造",
+    "商社",
+    "小売・流通",
+    "サービス・外食",
+    "マスコミ・広告",
+    "コンサルティング",
+    "不動産・建設",
+    "医療・福祉",
+    "教育",
+    "官公庁・公社・団体",
+    "その他",
+]
 
-#ユーザーの入力データ(仮)
-class UserInputData(BaseModel):
-    id: Optional[str] = None
-    salary_min: int = Field(..., ge=100, le=3000, description="最低年収を入力してください")
-    salary_max: int = Field(..., ge=200, le=9999, description="最高年収を入力してください")
-    holiday: int = Field(..., ge=1, le=365, description="年間休日数を入力してください")
-    description: str = Field(..., min_length=1, max_length=9999, description="求人の説明を入力してください")
-    @validator('salary_max')
-    def salary_max_must_be_greater_than_min(cls, v, values):
-        if 'salary_min' in values and v <= values['salary_min']:
-            raise ValueError('最高年収は最低年収より大きい必要があります')
+class AnalyzeInputData(BaseModel):
+    industry: str = Field(..., min_length=1, description="業界を選択してください")
+    job_text: str = Field(..., min_length=50, max_length=10000, description="求人情報を入力してください")
+    
+    @validator('industry')
+    def industry_must_be_valid(cls, v):
+        if v not in VALID_INDUSTRIES:
+            raise ValueError(f'業界は次のいずれかを選択してください: {", ".join(VALID_INDUSTRIES)}')
         return v
-    @validator('description')
-    def description_not_empty(cls, v):
+    
+    @validator('job_text')
+    def job_text_not_empty(cls, v):
         if not v.strip():
-            raise ValueError('説明は空文字列にできません')
+            raise ValueError('求人情報は空文字列にできません')
         return v.strip()
 
-#バリデーションエラーのハンドリング
+# バリデーションエラーのハンドリング
 @app.exception_handler(ValidationError)
 async def validation_exception_handler(request: Request, exc: ValidationError):
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
-#AI分析
+
+
+
 @app.post("/analyze")
-async def analyze(user_input: UserInputData):
-    if not user_input:
-        raise HTTPException(status_code=400, detail="入力が空です。")
-
-    ###promptは要修正
-    prompt = f"""
-    以下の求人情報から「ブラック企業度」を1〜5段階で評価してください。
-    1がブラック企業の可能性が低く、5がブラック企業の可能性が高い。
-
-    【給与範囲】{user_input.salary_min}〜{user_input.salary_max}万円
-    【年間休日】{user_input.holiday}日
-    【求人文】{user_input.description}
-
-    出力形式（必ずこのJSON形式で出力してください）:
-    {user_input.id}が空の場合は"id": null String型で
-    {{
-        "id": "{user_input.id}" String型,
-        "score": 数値 (1〜5) Number型,
-        "reason": "理由を100文字以内で説明" String型
-    }}
-    """
-    res = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "あなたは企業文化分析の専門家です。"},
-            {"role": "user", "content": prompt}
-        ],
-        response_format={"type": "json_object"}
+async def analyze(
+    user_input: AnalyzeInputData,
+    payload = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    #ClerkでユーザーID取得
+    clerk_id = payload["sub"]
+    #ユーザーの存在確認
+    user = db.query(User).filter(User.clerk_id == clerk_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+    #ユーザーの価値観情報を取得
+    user_preferences = db.query(UserPreferences).filter(UserPreferences.user_id == user.id).first()
+    if not user_preferences:
+        raise HTTPException(status_code=400, detail="価値観情報が登録されていません。先に価値観を設定してください。")
+    #job_postsにデータを保存
+    job_post_id = uuid.uuid4()
+    job_post = JobPosts(
+        id=job_post_id,
+        user_id=user.id,
+        industry=user_input.industry,
+        job_text=user_input.job_text,
+        analysis_status="pending"
     )
-    result_text = res.choices[0].message.content
+    db.add(job_post)
+    db.commit()
 
-    import json
     try:
+        prompt = f"""
+あなたは求人情報分析の専門家です。以下の求人情報を分析し、ユーザーの価値観との適合度とブラック企業リスクを評価してください。
+
+## 求人情報
+【業界】{user_input.industry}
+【求人テキスト】
+{user_input.job_text}
+
+## ユーザーの価値観・希望条件
+- 年齢層: {user_preferences.age}
+- 希望年収: {user_preferences.desired_salary}万円
+- 希望休日数: {user_preferences.desired_holiday}日/年
+- 許容残業時間: {user_preferences.max_overtime_hours}時間/月
+- リモートワーク希望: {user_preferences.remote_preference}
+- 働き方スタイル: {user_preferences.work_style}
+
+## 分析タスク
+1. **求人テキストから情報を抽出**
+   - 給与情報（基本給、賞与、各種手当）
+   - 休日・休暇情報
+   - 勤務時間・残業情報
+   - 福利厚生
+   - 仕事内容・求めるスキル
+   - 会社の特徴
+
+2. **情報を正規化**
+   - 年収レンジの推定
+   - 年間休日数の推定
+   - 想定残業時間の推定
+
+3. **マッチング度を評価（0-100点）**
+   - ユーザーの希望条件との適合度
+   - 給与、休日、働き方などの各項目を総合評価
+
+4. **ブラック企業リスクを評価（0-100点）**
+   - 低いほど良い（0=ホワイト、100=ブラック）
+   - 以下の観点で評価:
+     * 曖昧な給与表記（「〜」表記の幅が大きい、固定残業代込みなど）
+     * 休日数が少ない・曖昧
+     * 残業に関する言及がない/多いことが示唆される
+     * 精神論・根性論的な表現
+     * 高すぎるインセンティブ依存
+     * 離職率や定着率への言及がない
+     * 急募・大量募集
+
+## 出力形式（必ずこのJSON形式で出力してください）
+{{
+    "matching_score": 数値(0-100),
+    "matching_reason": "マッチング度の理由を200文字以内で説明。具体的な項目を挙げて説明してください",
+    "black_risk_score": 数値(0-100),
+    "black_risk_reason": "ブラック企業リスクの理由を200文字以内で説明。具体的な懸念点や良い点を挙げて説明してください"
+}}
+"""
+        res = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "あなたは求人情報を分析し、求職者に有益なアドバイスを提供する専門家です。客観的かつ公平に分析してください。"},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"}
+        )
+        result_text = res.choices[0].message.content
         result_json = json.loads(result_text)
-        print(result_json, "成功")
+        matching_score = max(0, min(100, result_json.get("matching_score", 50)))
+        black_risk_score = max(0, min(100, result_json.get("black_risk_score", 50)))
+        matching_reason = result_json.get("matching_reason", "分析結果を取得できませんでした")
+        black_risk_reason = result_json.get("black_risk_reason", "分析結果を取得できませんでした")
+        #job_analysis_aiにデータを保存
+        job_analysis = JobAnalysisAI(
+            id=uuid.uuid4(),
+            job_post_id=job_post_id,
+            matching_score=matching_score,
+            matching_reason=matching_reason,
+            black_risk_score=black_risk_score,
+            black_risk_reason=black_risk_reason,
+            prompt_version=PROMPT_VERSION,
+            created_at=datetime.now()
+        )
+        db.add(job_analysis)
+
+        #job_postのステータスを更新
+        job_post.analysis_status = "success"
+        job_post.analyzed_at = datetime.now()
+        db.commit()
+        #フロントエンドに結果を返却
+        return {
+            "job_post_id": str(job_post_id),
+            "matching_score": matching_score,
+            "matching_reason": matching_reason,
+            "black_risk_score": black_risk_score,
+            "black_risk_reason": black_risk_reason
+        }
     except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="JSON形式の解析に失敗しました")
-        # return {
-        #     "id": user_input.id,
-        #         "score": 3,
-        #         "reason": "分析結果の処理中にエラーが発生しました"
-        # }
+        job_post.analysis_status = "failed"
+        job_post.analysis_error = "AIの応答をパースできませんでした"
+        db.commit()
+        raise HTTPException(status_code=500, detail="分析結果の処理中にエラーが発生しました")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-        # return {
-        #     "id": user_input.id,
-        #         "score": 3,
-        #         "reason": "分析結果の処理中にサーバーエラーが発生しました"
-        # }
+        job_post.analysis_status = "failed"
+        job_post.analysis_error = str(e)
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"分析中にエラーが発生しました: {str(e)}")
 
-    return result_json
 
-#ユーザーの希望条件を取得
+
+########################################################
+###ユーザーの希望条件を取得
+########################################################
 class UserPreferencesModel(BaseModel):
         desired_salary: int = Field(..., ge=200, le=3000, description="希望年収を入力してください")
         age: str
