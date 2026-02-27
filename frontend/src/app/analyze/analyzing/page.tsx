@@ -3,14 +3,15 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSetAtom, useAtomValue } from "jotai";
 import { analysisResultAtom } from "@/stores/analysisResultAtom";
-import { analyzeCompany } from "@/app/actions/fetchAnalysis";
 import { inputInfoAtom } from "@/stores/inputInfoAtom";
+import { useAnalyzeCompany } from "@/hooks/useAnalyzeCompany";
 
 const AnalyzingPage = () => {
   const router = useRouter();
   const setResult = useSetAtom(analysisResultAtom);
   const hasRequest = useRef(false);
   const inputInfo = useAtomValue(inputInfoAtom);
+  const {mutate,isPending,isError,error} = useAnalyzeCompany();
 
   useEffect(() => {
     if (hasRequest.current) return;
@@ -21,32 +22,24 @@ const AnalyzingPage = () => {
       window.alert('入力情報がないため、入力ページにリダイレクトしました')
       return;
     }
-
-    const performAnalysis = async () => {
-      try {
-        hasRequest.current = true;
-
-        const result = await analyzeCompany({
-          industry: inputInfo.industry,
-          job_text: inputInfo.job_text,
-        });
-
-        if (result.success) {
-          setResult(result.data);
-          router.push("/analyze/result");
-        } else {
-          console.error("分析エラー:", result.error);
-          router.push(`/analyze?error=${encodeURIComponent(result.error)}`);
-        }
-      } catch (error) {
-        console.error("エラーが発生しました", error);
-        hasRequest.current = false;
-        router.push("/analyze?error=unexpected_error");
+    mutate(
+      { industry: inputInfo.industry, job_text: inputInfo.job_text },
+      {
+        onSuccess: (result) => {
+          if (result.success) {
+            setResult(result.data);
+            router.push("/analyze/result");
+          } else {
+            router.push(`/analyze?error=${encodeURIComponent(result.error)}`);
+          }
+        },
+        onError: (err) => {
+          router.push("/analyze?error=unexpected_error");
+          window.alert('分析中にエラーが発生しました: ' + err.message);
+        },
       }
-    };
-
-    performAnalysis();
-  }, [inputInfo, router, setResult]);
+    );
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center h-screen">
