@@ -1,17 +1,17 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useRouter } from "next/navigation";
-import { useSetAtom, useAtomValue } from "jotai";
+import { useEffect, useRef } from "react";
+import { useAnalyzeCompany } from "@/hooks/useAnalyzeCompany";
 import { analysisResultAtom } from "@/stores/analysisResultAtom";
 import { inputInfoAtom } from "@/stores/inputInfoAtom";
-import { useAnalyzeCompany } from "@/hooks/useAnalyzeCompany";
 
 const AnalyzingPage = () => {
   const router = useRouter();
   const setResult = useSetAtom(analysisResultAtom);
   const hasRequest = useRef(false);
   const inputInfo = useAtomValue(inputInfoAtom);
-  const {mutate,isPending,isError,error} = useAnalyzeCompany();
+  const { mutate } = useAnalyzeCompany();
 
   useEffect(() => {
     if (hasRequest.current) return;
@@ -19,9 +19,12 @@ const AnalyzingPage = () => {
     // 入力情報がない場合はフォームページにリダイレクト
     if (!inputInfo.industry || !inputInfo.job_text) {
       router.push("/analyze");
-      window.alert('入力情報がないため、入力ページにリダイレクトしました')
+      window.alert("入力情報がないため、入力ページにリダイレクトしました");
       return;
     }
+
+    hasRequest.current = true;
+
     mutate(
       { industry: inputInfo.industry, job_text: inputInfo.job_text },
       {
@@ -35,11 +38,11 @@ const AnalyzingPage = () => {
         },
         onError: (err) => {
           router.push("/analyze?error=unexpected_error");
-          window.alert('分析中にエラーが発生しました: ' + err.message);
+          window.alert(`分析中にエラーが発生しました: ${err.message}`);
         },
-      }
+      },
     );
-  }, []);
+  }, [inputInfo.industry, inputInfo.job_text, mutate, router, setResult]);
 
   return (
     <div className="flex flex-col items-center justify-center h-screen">
