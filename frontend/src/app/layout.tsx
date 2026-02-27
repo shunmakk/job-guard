@@ -9,6 +9,7 @@ import {
   SignUpButton,
   UserButton,
 } from "@clerk/nextjs";
+import { QueryProvider } from "@/providers/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -62,9 +63,11 @@ export default function RootLayout({
               <UserButton />
             </SignedIn>
           </header>
-          <div className="w-full mx-auto font-sans flex flex-col items-center justify-center">
-            {children}
-          </div>
+          <QueryProvider>
+            <div className="w-full mx-auto font-sans flex flex-col items-center justify-center">
+              {children}
+            </div>
+          </QueryProvider>
         </body>
       </html>
     </ClerkProvider>
