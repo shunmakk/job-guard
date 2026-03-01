@@ -10,6 +10,7 @@ class JobAnalysisAI(Base):
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     job_post_id = Column(PG_UUID(as_uuid=True), ForeignKey("job_posts.id"), index=True)
+    job_post_title = Column(String, nullable=True)
     matching_score = Column(Integer, nullable=False)
     matching_reason = Column(String, nullable=False)
     black_risk_score = Column(Integer, nullable=False)

@@ -193,8 +193,16 @@ async def analyze(
      * 離職率や定着率への言及がない
      * 急募・大量募集
 
+ 5. **求人タイトルを作成**
+   - 求人タイトルを作成（20文字程度）
+   - 求人タイトルは求人テキストを基に作成してください
+   - 可能であれば、求人テキストに含まれる会社名を求人タイトルに含めてください。
+   - 抽象的なタイトル（例：「成長できる環境」）は避け、技術・業界・職種が分かる具体的なタイトルにしてください。
+   - （例：「株式会社〇〇SaaS企業のTypeScriptエンジニア」)
+
 ## 出力形式（必ずこのJSON形式で出力してください）
 {{
+    "job_post_title": "求人タイトル",
     "matching_score": 数値(0-100),
     "matching_reason": "マッチング度の理由を200文字以内で説明。具体的な項目を挙げて説明してください",
     "black_risk_score": 数値(0-100),
@@ -211,6 +219,7 @@ async def analyze(
         )
         result_text = res.choices[0].message.content
         result_json = json.loads(result_text)
+        job_post_title = result_json.get("job_post_title", "")
         matching_score = max(0, min(100, result_json.get("matching_score", 50)))
         black_risk_score = max(0, min(100, result_json.get("black_risk_score", 50)))
         matching_reason = result_json.get("matching_reason", "分析結果を取得できませんでした")
@@ -219,6 +228,7 @@ async def analyze(
         job_analysis = JobAnalysisAI(
             id=uuid.uuid4(),
             job_post_id=job_post_id,
+            job_post_title=job_post_title,
             matching_score=matching_score,
             matching_reason=matching_reason,
             black_risk_score=black_risk_score,
