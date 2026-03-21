@@ -227,6 +227,7 @@ async def analyze(
         #job_analysis_aiにデータを保存
         job_analysis = JobAnalysisAI(
             id=uuid.uuid4(),
+            user_id=user.id,
             job_post_id=job_post_id,
             job_post_title=job_post_title,
             matching_score=matching_score,
@@ -291,7 +292,7 @@ async def save_preferences(
 
     if pref:
         #更新
-        pref.desired_salary = data.desired_holiday
+        pref.desired_salary = data.desired_salary
         pref.age = data.age
         pref.desired_holiday = data.desired_holiday
         pref.max_overtime_hours = data.max_overtime_hours
@@ -312,8 +313,9 @@ async def save_preferences(
         db.add(new_pref)
 
         if user.has_completed_preferences is False:
-         user.has_completed_preferences = True
-        db.commit()
+            user.has_completed_preferences = True
+
+    db.commit()
 
     return {
         "success": True,
