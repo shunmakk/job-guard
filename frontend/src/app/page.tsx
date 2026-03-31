@@ -52,6 +52,13 @@ export default function Home() {
               buttonText="Start!"
               className="max-w-[500px]"
             />
+            <MainCard
+              title="MY PAGE"
+              description="これまでの診断結果を見返して比較できます。"
+              href="/mypage"
+              buttonText="Myページへ"
+              className="mt-12 max-w-[500px]"
+            />
           </div>
         </div>
       </main>

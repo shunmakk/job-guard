@@ -19,6 +19,7 @@ import json
 import uuid
 from datetime import datetime
 from version import PROMPT_VERSION
+from sqlalchemy import desc
 
 
 load_dotenv()
@@ -75,6 +76,109 @@ async def register_user(
     "provider": new_user.provider,
     "has_completed_preferences": False
 }
+
+
+class JobMyPageHistoryDetailResponse(BaseModel):
+    analysis_id: str
+    job_post_id: str
+    job_post_title: str
+    industry: str
+    matching_score: int
+    black_risk_score: int
+    matching_reason: str
+    created_at: str
+    black_risk_reason: str
+    job_text: str
+
+class JobMyPageHistoryResponse(BaseModel):
+    analysis_id: str
+    job_post_id: str
+    job_post_title: str
+    industry: str
+    matching_score: int
+    black_risk_score: int
+    matching_reason: str
+    created_at: str
+
+
+@app.get("/job-analysis/mypage", response_model=list[JobMyPageHistoryResponse])
+def get_job_analysis_history(
+    payload=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    clerk_id = payload["sub"]
+    user = db.query(User).filter(User.clerk_id == clerk_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="未認証です")
+
+    histories = (
+        db.query(JobAnalysisAI, JobPosts.industry)
+        .outerjoin(JobPosts, JobAnalysisAI.job_post_id == JobPosts.id)
+        .filter(JobAnalysisAI.user_id == user.id)
+        .order_by(desc(JobAnalysisAI.created_at))
+        .limit(20)
+        .all()
+    )
+
+    if not histories:
+        raise HTTPException(status_code=404, detail="履歴が見つかりません")
+
+    return [
+        {
+            "analysis_id": str(history.id),
+            "job_post_id": str(history.job_post_id),
+            "job_post_title": history.job_post_title or "タイトル未設定",
+            "industry": industry or "未設定",
+            "matching_score": history.matching_score,
+            "black_risk_score": history.black_risk_score,
+            "matching_reason": history.matching_reason,
+            "created_at": history.created_at.isoformat(),
+        }
+        for history, industry in histories
+    ]
+@app.get("/job-analysis/mypage/{analysis_id}", response_model=JobMyPageHistoryDetailResponse)
+def get_job_analysis_history_detail(
+    analysis_id: str,
+    payload=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    clerk_id = payload["sub"]
+    user = db.query(User).filter(User.clerk_id == clerk_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="未認証です")
+
+    try:
+        analysis_uuid = uuid.UUID(analysis_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail="履歴が見つかりません") from error
+
+    history = (
+        db.query(JobAnalysisAI, JobPosts.industry, JobPosts.job_text)
+        .outerjoin(JobPosts, JobAnalysisAI.job_post_id == JobPosts.id)
+        .filter(
+            JobAnalysisAI.user_id == user.id,
+            JobAnalysisAI.id == analysis_uuid,
+        )
+        .first()
+    )
+
+    if not history:
+        raise HTTPException(status_code=404, detail="履歴が見つかりません")
+       
+    job_analysis, industry, job_text = history
+    return {
+        "analysis_id": str(job_analysis.id),
+        "job_post_id": str(job_analysis.job_post_id),
+        "job_post_title": job_analysis.job_post_title or "タイトル未設定",
+        "industry": industry or "未設定",
+        "matching_score": job_analysis.matching_score,
+        "black_risk_score": job_analysis.black_risk_score,
+        "matching_reason": job_analysis.matching_reason,
+        "black_risk_reason": job_analysis.black_risk_reason,
+        "job_text": job_text or "求人情報は保存されていません",
+        "created_at": job_analysis.created_at.isoformat(),
+    }
+
 
 ########################################################
 ###求人を元に価値観、希望条件との適合度とブラック企業リスクを評価
