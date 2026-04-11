@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
+import { apiUrl } from "@/lib/apiUrl";
 
 export type JobHistoryItem = {
   analysis_id: string;
@@ -26,7 +27,7 @@ export async function fetchJobHistory(): Promise<JobHistoryItem[]> {
     throw new Error("認証されていません");
   }
 
-  const response = await fetch("http://127.0.0.1:8000/job-analysis/mypage", {
+  const response = await fetch(apiUrl("/job-analysis/mypage"), {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -46,7 +47,7 @@ export async function fetchJobHistory(): Promise<JobHistoryItem[]> {
     throw new Error(
       typeof errorData.detail === "string"
         ? errorData.detail
-        : `履歴取得に失敗しました (status: ${response.status})`
+        : `履歴取得に失敗しました (status: ${response.status})`,
     );
   }
 
@@ -54,7 +55,7 @@ export async function fetchJobHistory(): Promise<JobHistoryItem[]> {
 }
 
 export async function fetchJobHistoryDetail(
-  analysisId: string
+  analysisId: string,
 ): Promise<JobHistoryDetail> {
   const { getToken } = await auth();
   const token = await getToken();
@@ -63,17 +64,14 @@ export async function fetchJobHistoryDetail(
     throw new Error("認証されていません");
   }
 
-  const response = await fetch(
-    `http://127.0.0.1:8000/job-analysis/mypage/${analysisId}`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-    }
-  );
+  const response = await fetch(apiUrl(`/job-analysis/mypage/${analysisId}`), {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    cache: "no-store",
+  });
 
   if (!response.ok) {
     const errorData = await response
@@ -82,7 +80,7 @@ export async function fetchJobHistoryDetail(
     throw new Error(
       typeof errorData.detail === "string"
         ? errorData.detail
-        : `履歴詳細の取得に失敗しました (status: ${response.status})`
+        : `履歴詳細の取得に失敗しました (status: ${response.status})`,
     );
   }
 

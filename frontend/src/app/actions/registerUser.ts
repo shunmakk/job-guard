@@ -1,5 +1,6 @@
 "use server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
+import { apiUrl } from "@/lib/apiUrl";
 
 export async function registerUser() {
   const { userId, getToken } = await auth();
@@ -17,11 +18,11 @@ export async function registerUser() {
   }
   const email =
     clerkUser.emailAddresses.find(
-      (e) => e.id === clerkUser.primaryEmailAddressId
+      (e) => e.id === clerkUser.primaryEmailAddressId,
     )?.emailAddress ?? "";
   const provider = clerkUser.externalAccounts?.[0]?.provider ?? "oauth_google";
 
-  const res = await fetch("http://127.0.0.1:8000/users/register", {
+  const res = await fetch(apiUrl("/users/register"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
