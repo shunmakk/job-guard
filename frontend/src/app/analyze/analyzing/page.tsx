@@ -14,7 +14,6 @@ const AnalyzingPage = () => {
   const { mutate } = useAnalyzeCompany();
 
   useEffect(() => {
-    if (hasRequest.current) return;
 
     // 入力情報がない場合はフォームページにリダイレクト
     if (!inputInfo.industry || !inputInfo.job_text) {
@@ -22,8 +21,6 @@ const AnalyzingPage = () => {
       window.alert("入力情報がないため、入力ページにリダイレクトしました");
       return;
     }
-
-    hasRequest.current = true;
 
     mutate(
       { industry: inputInfo.industry, job_text: inputInfo.job_text },

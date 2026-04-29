@@ -19,6 +19,7 @@ import json
 import uuid
 from datetime import datetime
 from version import PROMPT_VERSION
+from sqlalchemy import desc
 
 
 load_dotenv()
@@ -75,6 +76,145 @@ async def register_user(
     "provider": new_user.provider,
     "has_completed_preferences": False
 }
+
+
+class JobMyPageHistoryDetailResponse(BaseModel):
+    analysis_id: str
+    job_post_id: str
+    job_post_title: str
+    industry: str
+    matching_score: int
+    black_risk_score: int
+    matching_reason: str
+    created_at: str
+    black_risk_reason: str
+    job_text: str
+
+
+class JobMyPageUserInfoResponse(BaseModel):
+    desired_salary: Optional[int] = None
+    age: Optional[str] = None
+    desired_holiday: Optional[int] = None
+    max_overtime_hours: Optional[int] = None
+    remote_preference: Optional[str] = None
+    work_style: Optional[str] = None
+
+
+class JobMyPageHistoryResponse(BaseModel):
+    user_info: JobMyPageUserInfoResponse
+    analysis_id: str
+    job_post_id: str
+    job_post_title: str
+    industry: str
+    matching_score: int
+    black_risk_score: int
+    matching_reason: str
+    created_at: str
+
+
+@app.get("/job-analysis/mypage", response_model=list[JobMyPageHistoryResponse])
+def get_job_analysis_history(
+    payload=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    clerk_id = payload["sub"]
+    user = db.query(User).filter(User.clerk_id == clerk_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="未認証です")
+
+    user_info = (
+        db.query(UserPreferences).filter(UserPreferences.user_id == user.id).first()
+    )
+
+    histories = (
+        db.query(JobAnalysisAI, JobPosts.industry)
+        .outerjoin(JobPosts, JobAnalysisAI.job_post_id == JobPosts.id)
+        .filter(JobAnalysisAI.user_id == user.id)
+        .order_by(desc(JobAnalysisAI.created_at))
+        .limit(20)
+        .all()
+    )
+
+    if not histories:
+        raise HTTPException(status_code=404, detail="履歴が見つかりません")
+
+    user_info_payload: dict = (
+        {
+            "desired_salary": user_info.desired_salary,
+            "age": user_info.age,
+            "desired_holiday": user_info.desired_holiday,
+            "max_overtime_hours": user_info.max_overtime_hours,
+            "remote_preference": user_info.remote_preference,
+            "work_style": user_info.work_style,
+        }
+        if user_info
+        else {
+            "desired_salary": None,
+            "age": None,
+            "desired_holiday": None,
+            "max_overtime_hours": None,
+            "remote_preference": None,
+            "work_style": None,
+        }
+    )
+
+    return [
+        {
+            "user_info": user_info_payload,
+            "analysis_id": str(history.id),
+            "job_post_id": str(history.job_post_id),
+            "job_post_title": history.job_post_title or "タイトル未設定",
+            "industry": industry or "未設定",
+            "matching_score": history.matching_score,
+            "black_risk_score": history.black_risk_score,
+            "matching_reason": history.matching_reason,
+            "created_at": history.created_at.isoformat(),
+        }
+        for history, industry in histories
+    ]
+@app.get("/job-analysis/mypage/{analysis_id}", response_model=JobMyPageHistoryDetailResponse)
+def get_job_analysis_history_detail(
+    analysis_id: str,
+    payload=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    clerk_id = payload["sub"]
+    user = db.query(User).filter(User.clerk_id == clerk_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="未認証です")
+
+    try:
+        analysis_uuid = uuid.UUID(analysis_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail="履歴が見つかりません") from error
+
+    history = (
+        db.query(JobAnalysisAI, JobPosts.industry, JobPosts.job_text)
+        .outerjoin(JobPosts, JobAnalysisAI.job_post_id == JobPosts.id)
+        .filter(
+            JobAnalysisAI.user_id == user.id,
+            JobAnalysisAI.id == analysis_uuid,
+        )
+        .first()
+    )
+
+    if not history:
+        raise HTTPException(status_code=404, detail="履歴が見つかりません")
+       
+    job_analysis, industry, job_text = history
+    return {
+        "analysis_id": str(job_analysis.id),
+        "job_post_id": str(job_analysis.job_post_id),
+        "job_post_title": job_analysis.job_post_title or "タイトル未設定",
+        "industry": industry or "未設定",
+        "matching_score": job_analysis.matching_score,
+        "black_risk_score": job_analysis.black_risk_score,
+        "matching_reason": job_analysis.matching_reason,
+        "black_risk_reason": job_analysis.black_risk_reason,
+        "job_text": job_text or "求人情報は保存されていません",
+        "created_at": job_analysis.created_at.isoformat(),
+    }
+
 
 ########################################################
 ###求人を元に価値観、希望条件との適合度とブラック企業リスクを評価
@@ -193,8 +333,16 @@ async def analyze(
      * 離職率や定着率への言及がない
      * 急募・大量募集
 
+ 5. **求人タイトルを作成**
+   - 求人タイトルを作成（20文字程度）
+   - 求人タイトルは求人テキストを基に作成してください
+   - 可能であれば、求人テキストに含まれる会社名を求人タイトルに含めてください。
+   - 抽象的なタイトル（例：「成長できる環境」）は避け、技術・業界・職種が分かる具体的なタイトルにしてください。
+   - （例：「株式会社〇〇SaaS企業のTypeScriptエンジニア」)
+
 ## 出力形式（必ずこのJSON形式で出力してください）
 {{
+    "job_post_title": "求人タイトル",
     "matching_score": 数値(0-100),
     "matching_reason": "マッチング度の理由を200文字以内で説明。具体的な項目を挙げて説明してください",
     "black_risk_score": 数値(0-100),
@@ -211,6 +359,7 @@ async def analyze(
         )
         result_text = res.choices[0].message.content
         result_json = json.loads(result_text)
+        job_post_title = result_json.get("job_post_title", "")
         matching_score = max(0, min(100, result_json.get("matching_score", 50)))
         black_risk_score = max(0, min(100, result_json.get("black_risk_score", 50)))
         matching_reason = result_json.get("matching_reason", "分析結果を取得できませんでした")
@@ -218,7 +367,9 @@ async def analyze(
         #job_analysis_aiにデータを保存
         job_analysis = JobAnalysisAI(
             id=uuid.uuid4(),
+            user_id=user.id,
             job_post_id=job_post_id,
+            job_post_title=job_post_title,
             matching_score=matching_score,
             matching_reason=matching_reason,
             black_risk_score=black_risk_score,
@@ -281,7 +432,7 @@ async def save_preferences(
 
     if pref:
         #更新
-        pref.desired_salary = data.desired_holiday
+        pref.desired_salary = data.desired_salary
         pref.age = data.age
         pref.desired_holiday = data.desired_holiday
         pref.max_overtime_hours = data.max_overtime_hours
@@ -302,8 +453,9 @@ async def save_preferences(
         db.add(new_pref)
 
         if user.has_completed_preferences is False:
-         user.has_completed_preferences = True
-        db.commit()
+            user.has_completed_preferences = True
+
+    db.commit()
 
     return {
         "success": True,
