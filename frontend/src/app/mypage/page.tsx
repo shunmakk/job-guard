@@ -1,16 +1,17 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { fetchJobHistory, type JobHistoryItem } from "@/app/actions/fetchMyPageHistory";
+import Link from "next/link";
+import {
+  fetchJobHistory,
+  type JobHistoryItem,
+} from "@/app/actions/fetchMyPageHistory";
+import { HistorySkeleton } from "@/components/layout/Skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { HistorySkeleton } from "@/components/layout/Skeleton";
+import { formatDate } from "@/utils/formatDate";
 import getMatchingScoreColor from "@/utils/getMatchingScoreColor";
 import getRiskScoreColor from "@/utils/getRiskScoreColor";
-import Link from "next/link";
-import { formatDate } from "@/utils/formatDate";
-
-
 
 const truncateReason = (text: string, length = 80) =>
   text.length > length ? `${text.slice(0, length)}...` : text;
@@ -20,7 +21,9 @@ const HistoryCard = ({ history }: { history: JobHistoryItem }) => (
     <Card className="w-full transition-colors hover:bg-accent/30">
       <CardHeader className="space-y-1">
         <CardTitle className="text-lg">{history.job_post_title}</CardTitle>
-        <p className="text-sm text-muted-foreground">業界: {history.industry}</p>
+        <p className="text-sm text-muted-foreground">
+          業界: {history.industry}
+        </p>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap gap-6 text-sm font-semibold">
@@ -31,8 +34,12 @@ const HistoryCard = ({ history }: { history: JobHistoryItem }) => (
             ブラック度: {history.black_risk_score}
           </p>
         </div>
-        <p className="text-sm text-muted-foreground">診断日: {formatDate(history.created_at)}</p>
-        <p className="text-sm leading-relaxed">{truncateReason(history.matching_reason)}</p>
+        <p className="text-sm text-muted-foreground">
+          診断日: {formatDate(history.created_at)}
+        </p>
+        <p className="text-sm leading-relaxed">
+          {truncateReason(history.matching_reason)}
+        </p>
         <p className="text-sm text-blue-600">詳細を見る</p>
       </CardContent>
     </Card>
@@ -48,7 +55,7 @@ export default function MyPage() {
 
   return (
     <main className="container mx-auto w-11/12 max-w-3xl py-8 space-y-6">
-      <h1 className="text-2xl font-bold">診断履歴</h1>
+      <h1 className="text-2xl font-bold">MyPage</h1>
 
       {isLoading && (
         <div className="space-y-4">
@@ -62,7 +69,9 @@ export default function MyPage() {
         <Card>
           <CardContent className="py-8 text-center space-y-2">
             <p className="font-semibold">履歴の取得に失敗しました</p>
-            <p className="text-sm text-muted-foreground">再読み込みしてください</p>
+            <p className="text-sm text-muted-foreground">
+              再読み込みしてください
+            </p>
           </CardContent>
         </Card>
       )}
@@ -85,6 +94,41 @@ export default function MyPage() {
 
       {!isLoading && !error && data && data.length > 0 && (
         <div className="space-y-4">
+          <div className="space-y-2 mb-10">
+            <h2 className="text-lg font-semibold">あなたの希望条件</h2>
+            <Card className="w-full transition-colors hover:bg-accent/30">
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  希望年収:{" "}
+                  {data[0]?.user_info?.desired_salary != null
+                    ? `${data[0].user_info.desired_salary}万円`
+                    : "未設定"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  年齢: {data[0]?.user_info?.age ?? "未設定"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  希望休日:{" "}
+                  {data[0]?.user_info?.desired_holiday != null
+                    ? `${data[0].user_info.desired_holiday}日`
+                    : "未設定"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  許容残業時間:{" "}
+                  {data[0]?.user_info?.max_overtime_hours != null
+                    ? `${data[0].user_info.max_overtime_hours}時間`
+                    : "未設定"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  在宅可否: {data[0]?.user_info?.remote_preference ?? "未設定"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  働き方: {data[0]?.user_info?.work_style ?? "未設定"}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+          <h2 className="text-lg font-semibold">診断履歴</h2>
           {data.map((history) => (
             <HistoryCard key={history.analysis_id} history={history} />
           ))}

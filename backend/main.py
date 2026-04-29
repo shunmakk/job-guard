@@ -90,7 +90,18 @@ class JobMyPageHistoryDetailResponse(BaseModel):
     black_risk_reason: str
     job_text: str
 
+
+class JobMyPageUserInfoResponse(BaseModel):
+    desired_salary: Optional[int] = None
+    age: Optional[str] = None
+    desired_holiday: Optional[int] = None
+    max_overtime_hours: Optional[int] = None
+    remote_preference: Optional[str] = None
+    work_style: Optional[str] = None
+
+
 class JobMyPageHistoryResponse(BaseModel):
+    user_info: JobMyPageUserInfoResponse
     analysis_id: str
     job_post_id: str
     job_post_title: str
@@ -111,6 +122,10 @@ def get_job_analysis_history(
     if not user:
         raise HTTPException(status_code=401, detail="未認証です")
 
+    user_info = (
+        db.query(UserPreferences).filter(UserPreferences.user_id == user.id).first()
+    )
+
     histories = (
         db.query(JobAnalysisAI, JobPosts.industry)
         .outerjoin(JobPosts, JobAnalysisAI.job_post_id == JobPosts.id)
@@ -123,8 +138,29 @@ def get_job_analysis_history(
     if not histories:
         raise HTTPException(status_code=404, detail="履歴が見つかりません")
 
+    user_info_payload: dict = (
+        {
+            "desired_salary": user_info.desired_salary,
+            "age": user_info.age,
+            "desired_holiday": user_info.desired_holiday,
+            "max_overtime_hours": user_info.max_overtime_hours,
+            "remote_preference": user_info.remote_preference,
+            "work_style": user_info.work_style,
+        }
+        if user_info
+        else {
+            "desired_salary": None,
+            "age": None,
+            "desired_holiday": None,
+            "max_overtime_hours": None,
+            "remote_preference": None,
+            "work_style": None,
+        }
+    )
+
     return [
         {
+            "user_info": user_info_payload,
             "analysis_id": str(history.id),
             "job_post_id": str(history.job_post_id),
             "job_post_title": history.job_post_title or "タイトル未設定",

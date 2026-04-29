@@ -4,6 +4,14 @@ import { auth } from "@clerk/nextjs/server";
 import { apiUrl } from "@/lib/apiUrl";
 
 export type JobHistoryItem = {
+  user_info: {
+    desired_salary: number | null;
+    age: string | null;
+    desired_holiday: number | null;
+    max_overtime_hours: number | null;
+    remote_preference: string | null;
+    work_style: string | null;
+  };
   analysis_id: string;
   job_post_id: string;
   job_post_title: string;
