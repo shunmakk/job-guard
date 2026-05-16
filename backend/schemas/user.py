@@ -12,3 +12,8 @@ class UserPreferencesModel(BaseModel):
         max_overtime_hours: int = Field(..., ge=0, le=80, description="許容残業時間を入力してください")
         remote_preference: str = Field(..., description="在宅可否を入力してください")
         work_style: str = Field(..., description="働き方を入力してください")
+
+class UserResponse(BaseModel):
+    email: str
+    provider: str
+    has_completed_preferences: bool
