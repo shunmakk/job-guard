@@ -5,6 +5,11 @@ import { useEffect, useRef } from "react";
 import { useAnalyzeCompany } from "@/hooks/useAnalyzeCompany";
 import { analysisResultAtom } from "@/stores/analysisResultAtom";
 import { inputInfoAtom } from "@/stores/inputInfoAtom";
+import {
+  analysisPromises,
+  buildAnalysisRequestKey,
+} from "@/lib/analysisSession";
+import { analyzeCompany } from "@/app/actions/fetchAnalysis";
 
 const AnalyzingPage = () => {
   const router = useRouter();
@@ -14,7 +19,6 @@ const AnalyzingPage = () => {
   const { mutate } = useAnalyzeCompany();
 
   useEffect(() => {
-
     // 入力情報がない場合はフォームページにリダイレクト
     if (!inputInfo.industry || !inputInfo.job_text) {
       router.push("/analyze");
@@ -22,23 +26,45 @@ const AnalyzingPage = () => {
       return;
     }
 
-    mutate(
-      { industry: inputInfo.industry, job_text: inputInfo.job_text },
-      {
-        onSuccess: (result) => {
-          if (result.success) {
-            setResult(result.data);
-            router.push("/analyze/result");
-          } else {
-            router.push(`/analyze?error=${encodeURIComponent(result.error)}`);
-          }
-        },
-        onError: (err) => {
-          router.push("/analyze?error=unexpected_error");
-          window.alert(`分析中にエラーが発生しました: ${err.message}`);
-        },
-      },
+    const requestKey = buildAnalysisRequestKey(
+      inputInfo.industry,
+      inputInfo.job_text,
     );
+
+    if (!analysisPromises.has(requestKey)) {
+      analysisPromises.set(
+        requestKey,
+        analyzeCompany({
+          industry: inputInfo.industry,
+          job_text: inputInfo.job_text,
+        }),
+      );
+    }
+
+    let active = true;
+
+    const promise = analysisPromises.get(requestKey)!;
+    promise
+      .then((result) => {
+        if (!active) return;
+        if (result.success) {
+          setResult(result.data);
+          router.replace("/analyze/result");
+        } else {
+          router.replace(`/analyze?error=${encodeURIComponent(result.error)}`);
+        }
+      })
+      .catch((err) => {
+        if (!active) return;
+        router.replace("/analyze?error=unexpected_error");
+        window.alert(
+          `分析中にエラーが発生しました: ${err instanceof Error ? err.message : "不明なエラー"}`,
+        );
+      });
+
+    return () => {
+      active = false;
+    };
   }, [inputInfo.industry, inputInfo.job_text, mutate, router, setResult]);
 
   return (
